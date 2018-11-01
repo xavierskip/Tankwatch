@@ -1,0 +1,16 @@
+host: 'http://192.168.12.250:8000'
+username: admin
+password: 'admin'
+logfile: tank.log
+mail:
+    host: smtp.163.com
+    account: xx@163.com
+    passwd: xxxxxxxxx
+    subject: '[报警]'
+    address: a@163.com,b@163.com
+timedelta:
+    # weeks: 0
+    # days: 1
+    # hours: 5
+    minutes: 16
+    # seconds: 0
