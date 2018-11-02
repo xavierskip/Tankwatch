@@ -122,7 +122,7 @@ def main():
             alarm = item['FAlarmValue']
             temp = item['FTempValue1']
             trange = item['fanwei']
-            messages.append('{} {} {} {} {} {}'.format(
+            messages.append('{} {} {} {}({}) {}'.format(
                 time, fault, name, alarm, trange, temp))
         s = '\n'.join(messages)
         logger.info(s)
