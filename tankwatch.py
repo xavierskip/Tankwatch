@@ -76,7 +76,7 @@ class Tank(Crawl):
             "btnLogin.x": 0,
             "btnLogin.y": 0
         }
-        r = self.session.post(self.url, data=payload)
+        r = self.session.post(self.url, data=payload, timeout=30)
         return r
 
     @path('/Pages/FailManage/FailInfoList.aspx')
@@ -103,7 +103,7 @@ class Tank(Crawl):
             '__EVENTTARGET': 'ScriptManager1',
             '__EVENTARGUMENT': 'storeFailList|postback|refresh',
         }
-        return self.session.post(self.url, headers=headers, data=payload)
+        return self.session.post(self.url, headers=headers, data=payload, timeout=30)
 
     def get_failinfo_json(self, from_date, to_date):
         r = self.failinfo(from_date, to_date)
@@ -114,6 +114,48 @@ class Tank(Crawl):
             return json.loads(result.group(1))
         else:
             return None
+
+class mimetypeSMTPHandler(SMTPHandler):
+    def set_mimetype(self, mimetype):
+        self.mimetype = mimetype
+
+    def emit(self, record):
+        """
+        Emit a record.
+        Format the record and send it to the specified addressees.
+        """
+        try:
+            import smtplib
+            from email.header import Header
+            from email.utils import formatdate
+            from email.mime.text import MIMEText
+
+            port = self.mailport
+            if not port:
+                port = smtplib.SMTP_PORT
+
+            try:
+                minetype = self.mimetype
+            except AttributeError:
+                minetype = 'plain'
+
+            smtp = smtplib.SMTP(self.mailhost, port, timeout=self.timeout)
+            msg = self.format(record)
+            msg = MIMEText(msg, minetype, 'utf-8')
+            msg['From'] = self.fromaddr
+            msg['To'] = ','.join(self.toaddrs)
+            msg['Subject'] = Header(self.getSubject(record), 'utf-8')
+            msg['Date'] = formatdate()
+            if self.username:
+                if self.secure is not None:
+                    smtp.ehlo()
+                    smtp.starttls(*self.secure)
+                    smtp.ehlo()
+                smtp.login(self.username, self.password)
+            smtp.sendmail(self.fromaddr, self.toaddrs, msg.as_string())
+            smtp.quit()
+        except Exception:
+            self.handleError(record)
 
 def main():
     tank = Tank()
@@ -147,13 +189,14 @@ if __name__ == '__main__':
     fh = logging.FileHandler(CONFIG['logfile'])
     fh.setLevel('INFO')
     fh.setFormatter(fmt)
-    mh = SMTPHandler(
+    mh = mimetypeSMTPHandler(
         CONFIG['mail']['host'],
         CONFIG['mail']['account'],
         CONFIG['mail']['address'].split(',')[0],  # send mail to developer
         '[ERROR] TankWatch',
         credentials=(CONFIG['mail']['account'], CONFIG['mail']['passwd']),
         )
+    mh.set_mimetype('html')
     mh.setLevel('ERROR')
     logger.addHandler(sh)
     logger.addHandler(fh)
@@ -161,13 +204,14 @@ if __name__ == '__main__':
 
     mail = logging.getLogger('mail')
     mail.setLevel('INFO')
-    smtp = SMTPHandler(
+    smtp = mimetypeSMTPHandler(
         CONFIG['mail']['host'],
         CONFIG['mail']['account'],
         CONFIG['mail']['address'].split(','),
         CONFIG['mail']['subject'],
         credentials=(CONFIG['mail']['account'], CONFIG['mail']['passwd']),
         )
+    smtp.set_mimetype('html')
     mail.addHandler(smtp)
     # run it 
     try:
