@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # coding: utf-8
-import requests
-import json
 import re
+import os
+import json
 import logging
+import requests
 import argparse
 from ruamel.yaml import YAML
 from logging.handlers import SMTPHandler
@@ -18,10 +19,17 @@ if args.config:
     config_file = args.config
 else:
     config_file = 'config.yaml'
+# use absolute path to run in corntab for easy
+HERE = os.path.dirname(os.path.abspath(__file__))
+if not os.path.isabs(config_file):
+    config_file = os.path.join(HERE, config_file)
 
 yaml=YAML(typ='safe')
 with open(config_file) as f:
     CONFIG = yaml.load(f)
+
+if not os.path.isabs(CONFIG['logfile']):
+    CONFIG['logfile'] = os.path.join(HERE, CONFIG['logfile'])
 
 def datetime_from_to(**kwargs):
     date_to = datetime.now()
@@ -116,14 +124,8 @@ def main():
         messages = []
         for item in data:
             # print(item)
-            time = item['WarningDateTime']
-            name = item['FDevName']
-            fault = item['FFaultTypeName']
-            alarm = item['FAlarmValue']
-            temp = item['FTempValue1']
-            trange = item['fanwei']
-            messages.append('{} {} {} {}({}) {}'.format(
-                time, fault, name, alarm, trange, temp))
+            messages.append('\t{WarningDateTime} {FFaultTypeName} {FDevName} {FAlarmValue}({fanwei}) {FTempValue1}'.format(
+                **item))
         s = '\n'.join(messages)
         logger.info(s)
         mail.info(s)
