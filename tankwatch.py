@@ -1,13 +1,15 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # coding: utf-8
 import requests
 import json
 import re
 import logging
+import argparse
+from ruamel.yaml import YAML
 from logging.handlers import SMTPHandler
 from datetime import datetime, timedelta
-from ruamel.yaml import YAML
-import argparse
+from requests.exceptions import ReadTimeout, ConnectionError
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--config", help="your config file")
@@ -167,5 +169,7 @@ if __name__ == '__main__':
     # run it 
     try:
         main()
+    except (ReadTimeout, ConnectionError) as e:
+        mail.error('无法正常访问，请检查系统或者网络是否正常运行。', exc_info=True)
     except Exception as e:
         logger.exception(e, exc_info=True)
