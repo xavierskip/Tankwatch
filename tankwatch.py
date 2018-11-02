@@ -173,6 +173,6 @@ if __name__ == '__main__':
     try:
         main()
     except (ReadTimeout, ConnectionError) as e:
-        mail.error('无法正常访问，请检查系统或者网络是否正常运行。', exc_info=True)
+        mail.error('无法正常访问，请检查系统或者网络是否正常运行。')
     except Exception as e:
         logger.exception(e, exc_info=True)
