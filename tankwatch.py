@@ -158,6 +158,22 @@ class mimetypeSMTPHandler(SMTPHandler):
         except Exception:
             self.handleError(record)
 
+
+class PushBear(object):
+    API = 'https://pushbear.ftqq.com/sub'
+    def __init__(self, sendkey, timeout=30):
+        self.params = {
+        'sendkey': sendkey,
+        'text': '',
+        'desp': '',
+        }
+        self.timeout = timeout
+
+    def send(self, title, content=''):
+        self.params['text'] = title
+        self.params['desp'] = content
+        return requests.get(self.API, params=self.params, timeout=30)
+
 def main():
     tank = Tank()
     tank.login(CONFIG['username'],CONFIG['password'])
@@ -166,8 +182,11 @@ def main():
     if data:
         text = []
         tr = []
-        text_template = '\t{time} {name} {fault} {alarm}({trange}) {temp}℃'
-        tr_template = '<tr><td>{time}</td><td>{name}</td><td>{fault}</td><td>{alarm}({trange})</td><td>{temp}℃</td></tr>'
+        mdtr = []
+        text_template = '\t{time} {name} {fault} {alarm}({trange}) {temp}°C'
+        tr_template = '<tr><td>{time}</td><td>{name}</td><td>{fault}</td><td>{alarm}({trange})</td><td>{temp}°C</td></tr>'
+        mdtr_template = '|{time}|{name}|{fault}|{alarm}({trange})|{temp}°C|'
+        md_template = '|报警时间|设备名称|报警类型|报警描述|温度|\n|-|-|-|-|-|\n{}'
         for item in data:
             # print(item)
             info = {
@@ -180,9 +199,14 @@ def main():
             }
             text.append(text_template.format(**info))
             tr.append(tr_template.format(**info))
+            mdtr.append(mdtr_template.format(**info))
 
         logger.info('\n'.join(text))
         mail.info('<table>{}<table>'.format(''.join(tr)))
+
+        title = "有{}条报警信息".format(len(data))
+        markdown = md_template.format('\n'.join(mdtr))
+        weixin.send(title, markdown)
     else:
         logger.info('NO Alarm.')
         return 0
@@ -195,12 +219,15 @@ if __name__ == '__main__':
         )
     logger = logging.getLogger('tankwatch')
     logger.setLevel('DEBUG')
+    
     sh = logging.StreamHandler()
     sh.setLevel('DEBUG')
     sh.setFormatter(fmt)
+    
     fh = logging.FileHandler(CONFIG['logfile'])
     fh.setLevel('INFO')
     fh.setFormatter(fmt)
+    
     mh = mimetypeSMTPHandler(
         CONFIG['mail']['host'],
         CONFIG['mail']['account'],
@@ -210,12 +237,14 @@ if __name__ == '__main__':
         )
     mh.set_mimetype('html')
     mh.setLevel('ERROR')
+    
     logger.addHandler(sh)
     logger.addHandler(fh)
-    logger.addHandler(mh)
+    logger.addHandler(mh)  # send mail to develop when exception error raise
 
     mail = logging.getLogger('mail')
     mail.setLevel('INFO')
+
     smtp = mimetypeSMTPHandler(
         CONFIG['mail']['host'],
         CONFIG['mail']['account'],
@@ -224,11 +253,15 @@ if __name__ == '__main__':
         credentials=(CONFIG['mail']['account'], CONFIG['mail']['passwd']),
         )
     smtp.set_mimetype('html')
-    mail.addHandler(smtp)
+        
+    mail.addHandler(smtp)  # send mail with html table
+    # weixin push notification with markdown content
+    weixin = PushBear(CONFIG['SendKey'])
     # run it 
     try:
         main()
     except (ReadTimeout, ConnectionError) as e:
         mail.error('无法正常访问，请检查系统或者网络是否正常运行。')
-    except Exception as e:
+        weixin.send('无法正常访问，请检查系统或者网络是否正常运行。')
+    except Exception as e:  # only send to develop
         logger.exception(e, exc_info=True)
