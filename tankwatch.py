@@ -19,6 +19,7 @@ if args.config:
     config_file = args.config
 else:
     config_file = 'config.yaml'
+
 # use absolute path to run in corntab for easy
 HERE = os.path.dirname(os.path.abspath(__file__))
 if not os.path.isabs(config_file):
@@ -163,14 +164,25 @@ def main():
     fd, td = datetime_from_to(**CONFIG['timedelta'])
     data = tank.get_failinfo_json(fd, td)
     if data:
-        messages = []
+        text = []
+        tr = []
+        text_template = '\t{time} {name} {fault} {alarm}({trange}) {temp}℃'
+        tr_template = '<tr><td>{time}</td><td>{name}</td><td>{fault}</td><td>{alarm}({trange})</td><td>{temp}℃</td></tr>'
         for item in data:
             # print(item)
-            messages.append('\t{WarningDateTime} {FFaultTypeName} {FDevName} {FAlarmValue}({fanwei}) {FTempValue1}'.format(
-                **item))
-        s = '\n'.join(messages)
-        logger.info(s)
-        mail.info(s)
+            info = {
+            'time': item['WarningDateTime'].replace('T' ,' '),
+            'name': item['FDevName'],
+            'fault': item['FFaultTypeName'],
+            'alarm': item['FAlarmValue'],
+            'temp': item['FTempValue1'],
+            'trange': item['fanwei'],
+            }
+            text.append(text_template.format(**info))
+            tr.append(tr_template.format(**info))
+
+        logger.info('\n'.join(text))
+        mail.info('<table>{}<table>'.format(''.join(tr)))
     else:
         logger.info('NO Alarm.')
         return 0
@@ -181,7 +193,7 @@ if __name__ == '__main__':
         fmt='%(asctime)s --\n%(message)s',
         datefmt='%Y/%m/%d %H:%M:%S',
         )
-    logger = logging.getLogger(__name__)
+    logger = logging.getLogger('tankwatch')
     logger.setLevel('DEBUG')
     sh = logging.StreamHandler()
     sh.setLevel('DEBUG')
@@ -192,8 +204,8 @@ if __name__ == '__main__':
     mh = mimetypeSMTPHandler(
         CONFIG['mail']['host'],
         CONFIG['mail']['account'],
-        CONFIG['mail']['address'].split(',')[0],  # send mail to developer
-        '[ERROR] TankWatch',
+        CONFIG['mail']['address'].split(',')[0],  # only send mail to developer
+        '[ERROR]{}'.format(logger.name),
         credentials=(CONFIG['mail']['account'], CONFIG['mail']['passwd']),
         )
     mh.set_mimetype('html')
