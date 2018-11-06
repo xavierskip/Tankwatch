@@ -11,6 +11,7 @@ from logging.handlers import SMTPHandler
 from datetime import datetime, timedelta
 from requests.exceptions import ReadTimeout, ConnectionError
 
+Datefmt = "%Y-%m-%d %H:%M:%S"
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--config", help="your config file")
@@ -35,8 +36,7 @@ if not os.path.isabs(CONFIG['logfile']):
 def datetime_from_to(**kwargs):
     date_to = datetime.now()
     date_from = date_to - timedelta(**kwargs)
-    fmt = "%Y-%m-%d %H:%M:%S"
-    return date_from.strftime(fmt),  date_to.strftime(fmt)
+    return date_from.strftime(Datefmt),  date_to.strftime(Datefmt)
 
 def path(path):
     def decorate(func):
@@ -58,7 +58,7 @@ class Crawl(object):
         print('crawling', self.url)
 
 class Tank(Crawl):
-    host = CONFIG['host']
+    host = CONFIG['site']['host']
 
     @path('/')
     def ping(self):
@@ -176,8 +176,8 @@ class PushBear(object):
 
 def main():
     tank = Tank()
-    tank.login(CONFIG['username'],CONFIG['password'])
-    fd, td = datetime_from_to(**CONFIG['timedelta'])
+    tank.login(CONFIG['site']['username'],CONFIG['site']['password'])
+    fd, td = datetime_from_to(**CONFIG['alarm']['timedelta'])
     data = tank.get_failinfo_json(fd, td)
     if data:
         text = []
@@ -256,13 +256,23 @@ if __name__ == '__main__':
         
     mail.addHandler(smtp)  # send mail with html table
     # weixin push notification with markdown content
-    weixin = PushBear(CONFIG['SendKey'])
-    # run it 
+    weixin = PushBear(CONFIG['pushbear']['SendKey'])
+    # run it and catch the error to log it
     try:
         main()
+        # write last live time
+        CONFIG['alarm']['last_live'] = datetime.now().strftime(Datefmt)
+        yaml = YAML()
+        yaml.indent(mapping=4)
+        # import sys
+        # yaml.dump(CONFIG, sys.stdout)
+        with open(config_file, 'w') as f:
+            yaml.dump(CONFIG, f)
     except (ReadTimeout, ConnectionError) as e:
         logger.info('DISCONNECT')
-        mail.error('无法正常访问，请检查系统或者网络是否正常运行。')
-        weixin.send('无法正常访问，请检查系统或者网络是否正常运行。')
+        pass_time = datetime.now() - datetime.strptime(CONFIG['alarm']['last_live'], Datefmt)
+        if  pass_time < timedelta(**CONFIG['alarm']['buffer']):
+            mail.error('无法正常访问，请检查系统或者网络是否正常运行。')
+            weixin.send('无法正常访问，请检查系统或者网络是否正常运行。','{} pass.'.format(pass_time))
     except Exception as e:  # only send to develop
         logger.exception(e, exc_info=True)
