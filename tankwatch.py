@@ -211,54 +211,56 @@ def main():
         logger.info('NO Alarm.')
         return 0
 
+# for logging
+fmt = logging.Formatter(
+    fmt='%(asctime)s --\n%(message)s',
+    datefmt='%Y/%m/%d %H:%M:%S',
+    )
+
+logger = logging.getLogger('tankwatch')
+logger.setLevel('DEBUG')
+
+sh = logging.StreamHandler()
+sh.setLevel('DEBUG')
+sh.setFormatter(fmt)
+
+fh = logging.FileHandler(CONFIG['logfile'])
+fh.setLevel('INFO')
+fh.setFormatter(fmt)
+
+mh = mimetypeSMTPHandler(
+    CONFIG['mail']['host'],
+    CONFIG['mail']['account'],
+    CONFIG['mail']['address'].split(',')[0],  # only send mail to developer
+    '[ERROR]{}'.format(logger.name),
+    credentials=(CONFIG['mail']['account'], CONFIG['mail']['passwd']),
+    )
+mh.set_mimetype('html')
+mh.setLevel('ERROR')
+
+logger.addHandler(sh)
+logger.addHandler(fh)
+logger.addHandler(mh)  # send mail to develop when exception error raise
+
+mail = logging.getLogger('mail')
+mail.setLevel('INFO')
+
+smtp = mimetypeSMTPHandler(
+    CONFIG['mail']['host'],
+    CONFIG['mail']['account'],
+    CONFIG['mail']['address'].split(','),
+    CONFIG['mail']['subject'],
+    credentials=(CONFIG['mail']['account'], CONFIG['mail']['passwd']),
+    )
+smtp.set_mimetype('html')
+    
+mail.addHandler(smtp)  # send mail with html table
+
+# weixin push notification with markdown content
+weixin = PushBear(CONFIG['pushbear']['SendKey'])
+
 if __name__ == '__main__':
-    # for logging
-    fmt = logging.Formatter(
-        fmt='%(asctime)s --\n%(message)s',
-        datefmt='%Y/%m/%d %H:%M:%S',
-        )
-    logger = logging.getLogger('tankwatch')
-    logger.setLevel('DEBUG')
-    
-    sh = logging.StreamHandler()
-    sh.setLevel('DEBUG')
-    sh.setFormatter(fmt)
-    
-    fh = logging.FileHandler(CONFIG['logfile'])
-    fh.setLevel('INFO')
-    fh.setFormatter(fmt)
-    
-    mh = mimetypeSMTPHandler(
-        CONFIG['mail']['host'],
-        CONFIG['mail']['account'],
-        CONFIG['mail']['address'].split(',')[0],  # only send mail to developer
-        '[ERROR]{}'.format(logger.name),
-        credentials=(CONFIG['mail']['account'], CONFIG['mail']['passwd']),
-        )
-    mh.set_mimetype('html')
-    mh.setLevel('ERROR')
-    
-    logger.addHandler(sh)
-    logger.addHandler(fh)
-    logger.addHandler(mh)  # send mail to develop when exception error raise
-
-    mail = logging.getLogger('mail')
-    mail.setLevel('INFO')
-
-    smtp = mimetypeSMTPHandler(
-        CONFIG['mail']['host'],
-        CONFIG['mail']['account'],
-        CONFIG['mail']['address'].split(','),
-        CONFIG['mail']['subject'],
-        credentials=(CONFIG['mail']['account'], CONFIG['mail']['passwd']),
-        )
-    smtp.set_mimetype('html')
-        
-    mail.addHandler(smtp)  # send mail with html table
-    # weixin push notification with markdown content
-    weixin = PushBear(CONFIG['pushbear']['SendKey'])
-    # run it and catch the error to log it
-    try:
+    try:  # run it and catch the error to log it
         main()
         # write last live time
         CONFIG['alarm']['last_live'] = datetime.now().strftime(Datefmt)
