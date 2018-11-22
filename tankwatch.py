@@ -265,7 +265,8 @@ if __name__ == '__main__':
     try:  # run it and catch the error to log it
         main()
         if not CONFIG['alarm'].get('run') and CONFIG['alarm'].get('last_live'):
-            weixin.send('Tank ready to go')
+            # print(str(datetime.now())+'Tank ready to go')
+            weixin.send(str(datetime.now()), 'Tank ready to go')
         # run write last live time
         CONFIG['alarm']['run'] = 1
         CONFIG['alarm']['last_live'] = datetime.now().strftime(Datefmt)
