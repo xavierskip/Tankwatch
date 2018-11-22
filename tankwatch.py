@@ -82,6 +82,9 @@ class Tank(Crawl):
 
     @path('/Pages/FailManage/FailInfoList.aspx')
     def failinfo(self, from_date, to_date):
+        '''
+        just get 未处理 fail info
+        '''
         dateFieldFrom, timeFieldFrom_Value = from_date.split(' ')
         dateFieldTo, timeFieldTo_Value = to_date.split(' ')
         # print(dateFieldFrom, timeFieldFrom_Value, dateFieldTo, timeFieldTo_Value)
