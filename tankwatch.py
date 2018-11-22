@@ -3,11 +3,11 @@
 import re
 import os
 import json
-import logging
 import requests
 import argparse
-from ruamel.yaml import YAML
-from logging.handlers import SMTPHandler
+import logging
+from notify import mimetypeSMTPHandler, PushBear
+from dic import YAMLdict 
 from datetime import datetime, timedelta
 from requests.exceptions import ReadTimeout, ConnectionError
 
@@ -26,12 +26,58 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if not os.path.isabs(config_file):
     config_file = os.path.join(HERE, config_file)
 
-yaml=YAML(typ='safe')
-with open(config_file) as f:
-    CONFIG = yaml.load(f)
+CONFIG = YAMLdict(config_file)
 
 if not os.path.isabs(CONFIG['logfile']):
     CONFIG['logfile'] = os.path.join(HERE, CONFIG['logfile'])
+
+# for logging
+fmt = logging.Formatter(
+    fmt='%(asctime)s --\n%(message)s',
+    datefmt='%Y/%m/%d %H:%M:%S',
+    )
+
+logger = logging.getLogger('tankwatch')
+logger.setLevel('DEBUG')
+
+sh = logging.StreamHandler()
+sh.setLevel('DEBUG')
+sh.setFormatter(fmt)
+
+fh = logging.FileHandler(CONFIG['logfile'])
+fh.setLevel('INFO')
+fh.setFormatter(fmt)
+
+mh = mimetypeSMTPHandler(
+    CONFIG['mail']['host'],
+    CONFIG['mail']['account'],
+    CONFIG['mail']['address'].split(',')[0],  # only send mail to developer
+    '[ERROR]{}'.format(logger.name),
+    credentials=(CONFIG['mail']['account'], CONFIG['mail']['passwd']),
+    )
+mh.set_mimetype('html')
+mh.setLevel('ERROR')
+
+logger.addHandler(sh)
+logger.addHandler(fh)
+logger.addHandler(mh)  # send mail to develop when exception error raise
+
+mail = logging.getLogger('mail')
+mail.setLevel('INFO')
+
+smtp = mimetypeSMTPHandler(
+    CONFIG['mail']['host'],
+    CONFIG['mail']['account'],
+    CONFIG['mail']['address'].split(','),
+    CONFIG['mail']['subject'],
+    credentials=(CONFIG['mail']['account'], CONFIG['mail']['passwd']),
+    )
+smtp.set_mimetype('html')
+    
+mail.addHandler(smtp)  # send mail with html table
+
+# weixin push notification with markdown content
+weixin = PushBear(CONFIG['pushbear']['SendKey'])
 
 def datetime_from_to(**kwargs):
     date_to = datetime.now()
@@ -119,64 +165,6 @@ class Tank(Crawl):
         else:
             return None
 
-class mimetypeSMTPHandler(SMTPHandler):
-    def set_mimetype(self, mimetype):
-        self.mimetype = mimetype
-
-    def emit(self, record):
-        """
-        Emit a record.
-        Format the record and send it to the specified addressees.
-        """
-        try:
-            import smtplib
-            from email.header import Header
-            from email.utils import formatdate
-            from email.mime.text import MIMEText
-
-            port = self.mailport
-            if not port:
-                port = smtplib.SMTP_PORT
-
-            try:
-                minetype = self.mimetype
-            except AttributeError:
-                minetype = 'plain'
-
-            smtp = smtplib.SMTP(self.mailhost, port, timeout=self.timeout)
-            msg = self.format(record)
-            msg = MIMEText(msg, minetype, 'utf-8')
-            msg['From'] = self.fromaddr
-            msg['To'] = ','.join(self.toaddrs)
-            msg['Subject'] = Header(self.getSubject(record), 'utf-8')
-            msg['Date'] = formatdate()
-            if self.username:
-                if self.secure is not None:
-                    smtp.ehlo()
-                    smtp.starttls(*self.secure)
-                    smtp.ehlo()
-                smtp.login(self.username, self.password)
-            smtp.sendmail(self.fromaddr, self.toaddrs, msg.as_string())
-            smtp.quit()
-        except Exception:
-            self.handleError(record)
-
-
-class PushBear(object):
-    API = 'https://pushbear.ftqq.com/sub'
-    def __init__(self, sendkey, timeout=30):
-        self.params = {
-        'sendkey': sendkey,
-        'text': '',
-        'desp': '',
-        }
-        self.timeout = timeout
-
-    def send(self, title, content=''):
-        self.params['text'] = title
-        self.params['desp'] = content
-        return requests.get(self.API, params=self.params, timeout=30)
-
 def main():
     tank = Tank()
     tank.login(CONFIG['site']['username'],CONFIG['site']['password'])
@@ -214,57 +202,7 @@ def main():
         logger.info('NO Alarm.')
         return 0
 
-# for logging
-fmt = logging.Formatter(
-    fmt='%(asctime)s --\n%(message)s',
-    datefmt='%Y/%m/%d %H:%M:%S',
-    )
-
-logger = logging.getLogger('tankwatch')
-logger.setLevel('DEBUG')
-
-sh = logging.StreamHandler()
-sh.setLevel('DEBUG')
-sh.setFormatter(fmt)
-
-fh = logging.FileHandler(CONFIG['logfile'])
-fh.setLevel('INFO')
-fh.setFormatter(fmt)
-
-mh = mimetypeSMTPHandler(
-    CONFIG['mail']['host'],
-    CONFIG['mail']['account'],
-    CONFIG['mail']['address'].split(',')[0],  # only send mail to developer
-    '[ERROR]{}'.format(logger.name),
-    credentials=(CONFIG['mail']['account'], CONFIG['mail']['passwd']),
-    )
-mh.set_mimetype('html')
-mh.setLevel('ERROR')
-
-logger.addHandler(sh)
-logger.addHandler(fh)
-logger.addHandler(mh)  # send mail to develop when exception error raise
-
-mail = logging.getLogger('mail')
-mail.setLevel('INFO')
-
-smtp = mimetypeSMTPHandler(
-    CONFIG['mail']['host'],
-    CONFIG['mail']['account'],
-    CONFIG['mail']['address'].split(','),
-    CONFIG['mail']['subject'],
-    credentials=(CONFIG['mail']['account'], CONFIG['mail']['passwd']),
-    )
-smtp.set_mimetype('html')
-    
-mail.addHandler(smtp)  # send mail with html table
-
-# weixin push notification with markdown content
-weixin = PushBear(CONFIG['pushbear']['SendKey'])
-
 if __name__ == '__main__':
-    yaml = YAML()
-    yaml.indent(mapping=4)
     try:  # run it and catch the error to log it
         main()
         if not CONFIG['alarm'].get('run') and CONFIG['alarm'].get('last_live'):
@@ -273,16 +211,16 @@ if __name__ == '__main__':
         # run write last live time
         CONFIG['alarm']['run'] = 1
         CONFIG['alarm']['last_live'] = datetime.now().strftime(Datefmt)
-        with open(config_file, 'w') as f:
-            yaml.dump(CONFIG, f)
+        CONFIG.save()
     except (ReadTimeout, ConnectionError) as e:
         CONFIG['alarm']['run'] = 0
-        with open(config_file, 'w') as f:
-            yaml.dump(CONFIG, f)
-        pass_time = datetime.now() - datetime.strptime(CONFIG['alarm']['last_live'], Datefmt)
+        CONFIG.save()
+        pass_time = datetime.now() - datetime.strptime(CONFIG['alarm'].get('last_live','1970-1-1 0:0:0'), Datefmt)
         if  pass_time < timedelta(**CONFIG['alarm']['buffer']):
             logger.info('disconnect!')
             mail.error('无法正常访问，请检查系统或者网络是否正常运行。')
             weixin.send('无法正常访问，请检查系统或者网络是否正常运行。','{} pass.'.format(pass_time))
+        else:
+            logger.info('-')
     except Exception as e:  # only send to develop
         logger.exception(e, exc_info=True)
