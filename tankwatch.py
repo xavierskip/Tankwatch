@@ -109,7 +109,7 @@ class Tank(Crawl):
     def get_failinfo_json(self, from_date, to_date):
         r = self.failinfo(from_date, to_date)
         # print(r.text)
-        prog = re.compile('data:(\[.+\])')
+        prog = re.compile(r'data:(\[.+\])')
         result = prog.search(r.text)
         if result:
             return json.loads(result.group(1))
@@ -260,17 +260,21 @@ mail.addHandler(smtp)  # send mail with html table
 weixin = PushBear(CONFIG['pushbear']['SendKey'])
 
 if __name__ == '__main__':
+    yaml = YAML()
+    yaml.indent(mapping=4)
     try:  # run it and catch the error to log it
         main()
-        # write last live time
+        if not CONFIG['alarm'].get('run') and CONFIG['alarm'].get('last_live'):
+            weixin.send('Tank ready to go')
+        # run write last live time
+        CONFIG['alarm']['run'] = 1
         CONFIG['alarm']['last_live'] = datetime.now().strftime(Datefmt)
-        yaml = YAML()
-        yaml.indent(mapping=4)
-        # import sys
-        # yaml.dump(CONFIG, sys.stdout)
         with open(config_file, 'w') as f:
             yaml.dump(CONFIG, f)
     except (ReadTimeout, ConnectionError) as e:
+        CONFIG['alarm']['run'] = 0
+        with open(config_file, 'w') as f:
+            yaml.dump(CONFIG, f)
         pass_time = datetime.now() - datetime.strptime(CONFIG['alarm']['last_live'], Datefmt)
         if  pass_time < timedelta(**CONFIG['alarm']['buffer']):
             logger.info('disconnect')
