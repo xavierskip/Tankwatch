@@ -281,7 +281,7 @@ if __name__ == '__main__':
             yaml.dump(CONFIG, f)
         pass_time = datetime.now() - datetime.strptime(CONFIG['alarm']['last_live'], Datefmt)
         if  pass_time < timedelta(**CONFIG['alarm']['buffer']):
-            logger.info('disconnect')
+            logger.info('disconnect!')
             mail.error('无法正常访问，请检查系统或者网络是否正常运行。')
             weixin.send('无法正常访问，请检查系统或者网络是否正常运行。','{} pass.'.format(pass_time))
     except Exception as e:  # only send to develop
