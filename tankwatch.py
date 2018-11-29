@@ -115,9 +115,9 @@ class Tank(Crawl):
         payload = {
             "__EVENTTARGET": "",
             "__EVENTARGUMENT": "",
-            "__VIEWSTATE": "/wEPDwUKLTQxOTI5ODg5NWQYAQUeX19Db250cm9sc1JlcXVpcmVQb3N0QmFja0tleV9fFgMFDlNjcmlwdE1hbmFnZXIxBQhidG5Mb2dpbgUJYnRuQ2FuY2VsXmUt6A99X2CtoixT/rQZhXiO+9U=",
+            "__VIEWSTATE": "/wEPDwUKLTQxOTI5ODg5NWQYAQUeX19Db250cm9sc1JlcXVpcmVQb3N0QmFja0tleV9fFgMFDlNjcmlwdE1hbmFnZXIxBQhidG5Mb2dpbgUJYnRuQ2FuY2VsGqkA3CjmnLrHACl9kd9YZpKcjSI=",
             "__VIEWSTATEGENERATOR": "CA0B0334",
-            "__EVENTVALIDATION": "/wEWBgK6yrf3CwLB5eCpDQKl1bK4CQLKw6LdBQKC3IeGDAKQ9M/rBYwJEawUQF3XZczcLewoomOjQ7Fx",
+            "__EVENTVALIDATION": "/wEWBgK3rLTDAwLB5eCpDQKl1bK4CQLKw6LdBQKC3IeGDAKQ9M/rBfddaPKySA+jkCmMpYQMOSF3L+uP",
             "txtUsername": user,
             "txtPass": passwd,
             "btnLogin.x": 0,
