@@ -92,6 +92,9 @@ def path(path):
         return wrapper
     return decorate
 
+class LoginFailError(Exception):
+    pass
+
 class Crawl(object):
     """docstring for Crawl"""
     host = ""
@@ -113,10 +116,10 @@ class Tank(Crawl):
     @path('/Default.aspx')
     def login(self, user, passwd):
         payload = {
-            "__EVENTTARGET": "",
-            "__EVENTARGUMENT": "",
+            # "__EVENTTARGET": "",
+            # "__EVENTARGUMENT": "",
             "__VIEWSTATE": "/wEPDwUKLTQxOTI5ODg5NWQYAQUeX19Db250cm9sc1JlcXVpcmVQb3N0QmFja0tleV9fFgMFDlNjcmlwdE1hbmFnZXIxBQhidG5Mb2dpbgUJYnRuQ2FuY2VsGqkA3CjmnLrHACl9kd9YZpKcjSI=",
-            "__VIEWSTATEGENERATOR": "CA0B0334",
+            # "__VIEWSTATEGENERATOR": "CA0B0334",
             "__EVENTVALIDATION": "/wEWBgK3rLTDAwLB5eCpDQKl1bK4CQLKw6LdBQKC3IeGDAKQ9M/rBfddaPKySA+jkCmMpYQMOSF3L+uP",
             "txtUsername": user,
             "txtPass": passwd,
@@ -127,13 +130,23 @@ class Tank(Crawl):
         return r
 
     @path('/Pages/FailManage/FailInfoList.aspx')
-    def failinfo(self, from_date, to_date):
+    def failinfo(self, from_date, to_date, alarm_state=0):
         '''
         just get 未处理 fail info
+        alarm_state:
+            -1 全部
+            0  未处理
+            1  已处理
         '''
         dateFieldFrom, timeFieldFrom_Value = from_date.split(' ')
         dateFieldTo, timeFieldTo_Value = to_date.split(' ')
         # print(dateFieldFrom, timeFieldFrom_Value, dateFieldTo, timeFieldTo_Value)
+        states = {
+            -1: (-1,'全部',0),
+            0: (0,'未处理',1),
+            1: (1,'已处理',2),
+        }
+        AlarmState_Value, AlarmState, AlarmState_SelIndex = states[alarm_state]
         headers = {'X-Ext.Net': 'delta=true'}
         payload = {
             'submitDirectEventConfig': '{"config":{"extraParams":{"start":0,"limit":100}}}',
@@ -146,21 +159,24 @@ class Tank(Crawl):
             'combFaultType_Value': 0,
             'combFaultType': '全部',
             'combFaultType_SelIndex': 0,
-            'combFAlarmState_Value': 0,
-            'combFAlarmState': '未处理',
-            'combFAlarmState_SelIndex': 1,
+            'combFAlarmState_Value': AlarmState_Value,
+            'combFAlarmState': AlarmState,
+            'combFAlarmState_SelIndex': AlarmState_SelIndex,
             'PagingToolBar1_ActivePage': 1,
             '__EVENTTARGET': 'ScriptManager1',
             '__EVENTARGUMENT': 'storeFailList|postback|refresh',
         }
         return self.session.post(self.url, headers=headers, data=payload, timeout=30)
 
-    def get_failinfo_json(self, from_date, to_date):
-        r = self.failinfo(from_date, to_date)
-        # print(r.text)
+    def get_failinfo_json(self, from_date, to_date, alarm_state=0):
+        r = self.failinfo(from_date, to_date, alarm_state)
+        # print(r.text)        
+        if r.text == '{script:"window.location=\\"/Default.aspx\\";"}':
+            raise LoginFailError
         prog = re.compile(r'data:(\[.+\])')
         result = prog.search(r.text)
         if result:
+            # return list
             return json.loads(result.group(1))
         else:
             return None
@@ -198,6 +214,7 @@ def main():
         title = "有{}条报警信息".format(len(data))
         markdown = md_template.format('\n'.join(mdtr))
         weixin.send(title, markdown)
+    # elif data = 
     else:
         logger.info('NO Alarm.')
         return 0
@@ -212,6 +229,8 @@ if __name__ == '__main__':
         CONFIG['alarm']['run'] = 1
         CONFIG['alarm']['last_live'] = datetime.now().strftime(Datefmt)
         CONFIG.save()
+    except LoginFailError as e:
+        logger.error('! login error')
     except (ReadTimeout, ConnectionError) as e:
         CONFIG['alarm']['run'] = 0
         CONFIG.save()
