@@ -1,23 +1,26 @@
 #!/usr/bin/env python3
 # coding: utf-8
 from ruamel.yaml import YAML
+from collections.abc import Mapping
 
-class YAMLdict(dict):
+class YAMLdict(Mapping):
     '''
     don't use like dict!
     magic methods
     https://segmentfault.com/a/1190000007256392
     https://pycoders-weekly-chinese.readthedocs.io/en/latest/issue6/a-guide-to-pythons-magic-methods.html
+    Don’t inherit Python built-in dict type
+    http://www.kr41.net/2016/03-23-dont_inherit_python_builtin_dict_type.html
     '''
     def __init__(self, file):
         self.yaml = YAML()
         self.yaml.indent(mapping=4)
-        self.__file = file
+        self.__file = file  # for save file
         with open(file) as f:
             self.__config = self.yaml.load(f)
 
     def __len__(self):
-        return self.__config
+        return len(self.__config)
 
     def __getitem__(self, key):
         return self.__config[key]
@@ -49,11 +52,12 @@ class YAMLdict(dict):
             self.yaml.dump(self.__config, f)
 
 if __name__ == "__main__":
-    config = YAMLdict('config.yaml')
+    config = YAMLdict('test_config.yaml')
     print(config)
     print(config['logfile'])
     print(config['alarm']['run'])
     config['alarm']['run'] = 'None'
     config.save()
-    print(config.get('mail'))
     print(config['mail'].get('subject'))
+    print(list(config.keys()))
+    print(list(config.values()))
