@@ -56,8 +56,10 @@ if __name__ == "__main__":
     print(config)
     print(config['logfile'])
     print(config['alarm']['run'])
-    config['alarm']['run'] = 'None'
+    config['alarm']['run'] = 'don\'t run'
     config.save()
-    print(config['mail'].get('subject'))
+    print(config['alarm'].get('run'))
     print(list(config.keys()))
-    print(list(config.values()))
+    print(list(config['alarm'].values()))
+    config['alarm']['run'] = 'ok'
+    config.save()
