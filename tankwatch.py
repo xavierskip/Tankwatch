@@ -229,17 +229,18 @@ if __name__ == '__main__':
         CONFIG['alarm']['run'] = 1
         CONFIG['alarm']['last_live'] = datetime.now().strftime(Datefmt)
         CONFIG.save()
-    except LoginFailError as e:
-        logger.error('! login error')
-    except (ReadTimeout, ConnectionError) as e:
+    except (LoginFailError, ReadTimeout, ConnectionError) as e:
         CONFIG['alarm']['run'] = 0
         CONFIG.save()
         pass_time = datetime.now() - datetime.strptime(CONFIG['alarm'].get('last_live','1970-1-1 0:0:0'), Datefmt)
         if  pass_time < timedelta(**CONFIG['alarm']['buffer']):
-            logger.info('disconnect!')
-            mail.error('无法正常访问，请检查系统或者网络是否正常运行。')
-            weixin.send('无法正常访问，请检查系统或者网络是否正常运行。','{} pass.'.format(pass_time))
-        else:
+            if isinstance(e, LoginFailError):
+                logger.error('! login error')
+            if isinstance(e, (ReadTimeout, ConnectionError)):
+                logger.info('disconnect!')
+                mail.error('无法正常访问，请检查系统或者网络是否正常运行。')
+                weixin.send('无法正常访问，请检查系统或者网络是否正常运行。','{} pass.'.format(pass_time))
+        else:  # do nothing and waiting for system to run
             logger.info('-')
     except Exception as e:  # only send to develop
         logger.exception(e, exc_info=True)
