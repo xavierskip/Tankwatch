@@ -7,7 +7,7 @@ import time
 import requests
 import argparse
 import logging
-from notify import mimetypeSMTPHandler, PushBear
+from notify import mimetypeSMTPHandler, SC
 from dic import YAMLdict 
 from datetime import datetime, timedelta
 from requests.exceptions import ReadTimeout, ConnectionError
@@ -78,7 +78,7 @@ smtp.set_mimetype('html')
 mail.addHandler(smtp)  # send mail with html table
 
 # weixin push notification with markdown content
-weixin = PushBear(CONFIG['pushbear']['SendKey'])
+weixin = SC(CONFIG['ftqq']['SendKey'])
 
 def datetime_from_to(**kwargs):
     date_to = datetime.now()
@@ -211,10 +211,11 @@ def main():
 
         logger.info('\n'.join(text))
         mail.info('<table>{}<table>'.format(''.join(tr)))
-
-        title = "有{}条报警信息".format(len(data))
-        markdown = md_template.format('\n'.join(mdtr))
-        weixin.send(title, markdown)
+        
+        # send to weixin
+        # title = "有{}条报警信息".format(len(data))
+        # markdown = md_template.format('\n'.join(mdtr))
+        # weixin.send(title, markdown)
     # elif data = 
     else:
         logger.info('NO Alarm.')
@@ -227,7 +228,8 @@ if __name__ == '__main__':
             main()
             if not CONFIG['alarm'].get('run') and CONFIG['alarm'].get('last_live'):
                 # print(str(datetime.now())+'Tank ready to go')
-                weixin.send(str(datetime.now()), 'Tank ready to go')
+                mail.info('系统已经开始运行。')
+                weixin.send('系统已经开始运行。', str(datetime.now()))
             # run write last live time
             CONFIG['alarm']['run'] = 1
             CONFIG['alarm']['last_live'] = datetime.now().strftime(Datefmt)

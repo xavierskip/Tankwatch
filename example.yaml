@@ -19,5 +19,5 @@ alarm:
     buffer:
         hours: 1
         # minutes: 45
-pushbear:
+ftqq:
     SendKey: 0000-00000000000000

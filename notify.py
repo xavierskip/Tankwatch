@@ -58,4 +58,18 @@ class PushBear(object):
     def send(self, title, content=''):
         self.params['text'] = title
         self.params['desp'] = content
-        return requests.get(self.API, params=self.params, timeout=30)
+        return requests.get(self.API, params=self.params, timeout=self.timeout)
+
+class SC(object):
+    def __init__(self, sendkey, timeout=30):
+        self.params = {
+        'text': '',
+        'desp': '',
+        }
+        self.timeout = timeout
+        self.url = "https://sc.ftqq.com/{}.send".format(sendkey) 
+
+    def send(self, title, content=''):
+        self.params['text'] = title
+        self.params['desp'] = content
+        return requests.get(self.url, params=self.params, timeout=self.timeout)
